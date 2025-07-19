@@ -16,3 +16,10 @@ export function broadcast(event: string, data: any) {
         stream.writeSSE({ event, data: JSON.stringify(data), id: crypto.randomUUID() });
     }
 }
+
+export function emit(streamId: string, event: string, data: any) {
+    const stream = streams.get(streamId);
+    if (stream) {
+        stream.writeSSE({ event, data: JSON.stringify(data), id: crypto.randomUUID() });
+    }
+}

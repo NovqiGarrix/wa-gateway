@@ -4,13 +4,13 @@ import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { streamSSE } from "hono/streaming";
 import moment from "moment";
-import * as whastapp from "wa-multi-session";
+import * as whatsapp from "wa-multi-session";
 import { createMessageController } from "./controllers/message";
 import { createSessionController } from "./controllers/session";
 import { env } from "./env";
 import { globalErrorMiddleware } from "./middlewares/error.middleware";
 import { notFoundMiddleware } from "./middlewares/notfound.middleware";
-import { addStream, broadcast, removeStream } from "./services/sse.service";
+import { addStream, broadcast, emit, removeStream } from "./services/sse.service";
 
 const app = new Hono();
 
@@ -37,6 +37,8 @@ app.route("/session", createSessionController());
 app.route("/message", createMessageController());
 
 app.get("/events", (c) => {
+  const session = c.req.query("session");
+
   return streamSSE(c, async (stream) => {
     const streamId = crypto.randomUUID();
     addStream(streamId, stream);
@@ -47,6 +49,13 @@ app.get("/events", (c) => {
       event: "open",
       data: "SSE connection established",
     });
+
+    if (session) {
+      const sessionData = whatsapp.getSession(session);
+      if (sessionData?.authState) {
+        emit(streamId, "session:connected", { session });
+      }
+    }
 
     stream.onAbort(() => {
       removeStream(streamId);
@@ -75,9 +84,9 @@ serve(
   }
 );
 
-whastapp.onConnected((session) => {
+whatsapp.onConnected((session) => {
   console.log(`session: '${session}' connected`);
   broadcast("session:connected", { session });
 });
 
-whastapp.loadSessionsFromStorage();
+whatsapp.loadSessionsFromStorage();
